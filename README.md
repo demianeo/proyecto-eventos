@@ -4,7 +4,7 @@ API REST inicial para una plataforma de talleres, conferencias, retiros, activid
 
 ## Objetivo de las entregas iniciales
 
-Establecer una arquitectura inicial por capas con Node.js y Express y añadir un registro seguro de usuarios mediante MongoDB. Las rutas básicas de salud, eventos y sesiones se mantienen disponibles.
+Establecer una arquitectura inicial por capas con Node.js y Express, registro seguro de usuarios y autenticación basada en JWT almacenado en cookies HttpOnly.
 
 ## Tecnologías
 
@@ -14,6 +14,8 @@ Establecer una arquitectura inicial por capas con Node.js y Express y añadir un
 - dotenv
 - Mongoose
 - bcrypt
+- jsonwebtoken
+- cookie-parser
 
 ## Requisitos previos
 
@@ -27,7 +29,7 @@ Establecer una arquitectura inicial por capas con Node.js y Express y añadir un
 3. Copiar `.env.example` como `.env`.
 4. Ajustar `PORT` si se desea usar otro puerto.
 
-MongoDB debe estar disponible antes de iniciar el servidor. Configura `MONGO_URL` en tu archivo `.env` a partir de `.env.example`. No incluyas credenciales reales en archivos versionados. `JWT_SECRET` queda reservado para una entrega futura y no se utiliza todavía.
+MongoDB debe estar disponible antes de iniciar el servidor. Configura `MONGO_URL`, `JWT_SECRET` y `JWT_EXPIRES_IN` en tu archivo `.env` a partir de `.env.example`. No incluyas credenciales reales ni secretos en archivos versionados.
 
 ## Ejecución
 
@@ -60,13 +62,17 @@ src/
 └── utils/                 # Utilidades reutilizables futuras
 ```
 
-## Endpoints disponibles
+## Rutas disponibles
 
-| Método | Ruta | Respuesta esperada |
+| Método | Ruta | Descripción |
 | --- | --- | --- |
-| GET | `/api/health` | `{"status":"ok","message":"Servidor activo"}` |
-| GET | `/api/events` | `{"status":"success","payload":[]}` |
-| GET | `/api/sessions` | `{"status":"success","payload":[]}` |
+| POST | `/api/sessions/register` | Registrar usuario |
+| POST | `/api/sessions/login` | Iniciar sesión |
+| GET | `/api/sessions/current` | Obtener usuario autenticado |
+| POST | `/api/sessions/logout` | Cerrar sesión |
+| GET | `/api/health` | Estado del servidor |
+| GET | `/api/events` | Listar eventos |
+| GET | `/api/sessions` | Estructura inicial de sesiones |
 
 ## Registro de usuarios
 
@@ -91,8 +97,96 @@ Respuestas:
 - `400`: campos faltantes, email inválido o contraseña demasiado corta.
 - `409`: el email ya está registrado.
 
+Ejemplo de respuesta correcta (`201`):
+
+```json
+{
+  "status": "success",
+  "payload": {
+    "id": "...",
+    "first_name": "Ana",
+    "last_name": "Pérez",
+    "email": "ana@mail.com",
+    "role": "user"
+  }
+}
+```
+
+## Autenticación
+
+### Login
+
+**POST** `/api/sessions/login`
+
+```json
+{
+  "email": "ana@mail.com",
+  "password": "Secreta123"
+}
+```
+
+Respuesta correcta (`200`):
+
+```json
+{
+  "status": "success",
+  "message": "Login correcto"
+}
+```
+
+La respuesta crea la cookie `currentUser`, que es `HttpOnly`, usa `SameSite=Lax` y solo se marca como `Secure` en producción. El JWT contiene únicamente `id`, `email` y `role`; no se devuelve en JSON.
+
+Si las credenciales no son válidas, responde (`401`):
+
+```json
+{
+  "status": "error",
+  "message": "Credenciales inválidas"
+}
+```
+
+### Usuario actual
+
+**GET** `/api/sessions/current`
+
+Con una cookie válida responde (`200`):
+
+```json
+{
+  "status": "success",
+  "payload": {
+    "id": "...",
+    "email": "ana@mail.com",
+    "role": "user"
+  }
+}
+```
+
+Sin cookie, con un token inválido o expirado responde (`401`):
+
+```json
+{
+  "status": "error",
+  "message": "No autenticado"
+}
+```
+
+### Logout
+
+**POST** `/api/sessions/logout`
+
+Elimina la cookie `currentUser` y responde (`200`):
+
+```json
+{
+  "status": "success",
+  "message": "Sesión cerrada"
+}
+```
+
+Las contraseñas se almacenan como hash bcrypt y nunca se devuelven, ni se incluyen en el JWT. `JWT_SECRET` permanece exclusivamente en `.env`, fuera de GitHub.
+
 ## Pendiente para futuras entregas
 
-- Inicio de sesión y autenticación JWT.
 - CRUD de eventos.
 - Inscripciones, cupos y notificaciones.

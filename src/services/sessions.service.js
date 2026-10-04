@@ -1,5 +1,6 @@
 import usersRepository from '../repositories/users.repository.js';
-import { createHash } from '../utils/hash.js';
+import { createHash, isValidPassword } from '../utils/hash.js';
+import { generateToken } from '../utils/jwt.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,7 +12,7 @@ const createError = (statusCode, message) => {
 
 class SessionsService {
   async registerUser(data) {
-    const { first_name, last_name, email, password } = data;
+    const { first_name, last_name, email, password } = data || {};
 
     if (
       typeof first_name !== 'string' || !first_name.trim() ||
@@ -45,6 +46,30 @@ class SessionsService {
       last_name: last_name.trim(),
       email: normalizedEmail,
       password: hashedPassword
+    });
+  }
+
+  async loginUser(data) {
+    const { email, password } = data || {};
+
+    if (
+      typeof email !== 'string' || !email.trim() ||
+      typeof password !== 'string' || !password.trim()
+    ) {
+      throw createError(401, 'Credenciales inválidas');
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await usersRepository.findByEmail(normalizedEmail);
+
+    if (!user || !(await isValidPassword(password, user.password))) {
+      throw createError(401, 'Credenciales inválidas');
+    }
+
+    return generateToken({
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role
     });
   }
 }
