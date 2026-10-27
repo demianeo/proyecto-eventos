@@ -1,25 +1,28 @@
 import usersDao from '../dao/users.dao.js';
 
-const toPublicUser = (user) => {
-  const userObject = user.toObject ? user.toObject() : user;
-
-  return {
-    id: userObject._id.toString(),
-    first_name: userObject.first_name,
-    last_name: userObject.last_name,
-    email: userObject.email,
-    role: userObject.role
-  };
-};
-
 class UsersRepository {
   findByEmail(email) {
-    return usersDao.findByEmail(email);
+    return usersDao.findOne({ email });
   }
 
-  async create(userData) {
-    const user = await usersDao.create(userData);
-    return toPublicUser(user);
+  findUserById(id) {
+    return usersDao.findById(id);
+  }
+
+  createUser(userData) {
+    return usersDao.create(userData);
+  }
+
+  updateUser(id, data) {
+    return usersDao.updateById(id, data);
+  }
+
+  findUsers(filter = {}) {
+    return usersDao.find(filter);
+  }
+
+  countUsers(filter = {}) {
+    return usersDao.count(filter);
   }
 }
 

@@ -1,5 +1,6 @@
-import sessionsService from '../services/sessions.service.js';
 import env from '../config/env.config.js';
+import { toCurrentUserDTO } from '../dto/current-user.dto.js';
+import { generateToken } from '../utils/jwt.js';
 
 const cookieOptions = {
   httpOnly: true,
@@ -15,22 +16,20 @@ export const getSessions = (_request, response) => {
   });
 };
 
-export const register = async (request, response, next) => {
-  try {
-    const user = await sessionsService.registerUser(request.body);
-
-    response.status(201).json({
-      status: 'success',
-      payload: user
-    });
-  } catch (error) {
-    next(error);
-  }
+export const register = (request, response) => {
+  response.status(201).json({
+    status: 'success',
+    payload: request.user
+  });
 };
 
-export const login = async (request, response, next) => {
+export const login = (request, response, next) => {
   try {
-    const token = await sessionsService.loginUser(request.body);
+    const token = generateToken({
+      id: request.user.id,
+      email: request.user.email,
+      role: request.user.role
+    });
 
     response.cookie('currentUser', token, cookieOptions);
     response.status(200).json({
@@ -45,7 +44,7 @@ export const login = async (request, response, next) => {
 export const current = (request, response) => {
   response.status(200).json({
     status: 'success',
-    payload: request.user
+    payload: toCurrentUserDTO(request.user)
   });
 };
 

@@ -1,6 +1,7 @@
 import usersRepository from '../repositories/users.repository.js';
+import { toCurrentUserDTO } from '../dto/current-user.dto.js';
+import { toUserDTO } from '../dto/user.dto.js';
 import { createHash, isValidPassword } from '../utils/hash.js';
-import { generateToken } from '../utils/jwt.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -10,16 +11,13 @@ const createError = (statusCode, message) => {
   return error;
 };
 
-class SessionsService {
-  async registerUser(data) {
-    const { first_name, last_name, email, password } = data || {};
+const isBlank = (value) => typeof value !== 'string' || !value.trim();
 
-    if (
-      typeof first_name !== 'string' || !first_name.trim() ||
-      typeof last_name !== 'string' || !last_name.trim() ||
-      typeof email !== 'string' || !email.trim() ||
-      typeof password !== 'string' || !password.trim()
-    ) {
+class SessionsService {
+  async registerUser(data = {}) {
+    const { first_name, last_name, email, password } = data;
+
+    if (isBlank(first_name) || isBlank(last_name) || isBlank(email) || isBlank(password)) {
       throw createError(400, 'Faltan campos obligatorios');
     }
 
@@ -39,38 +37,36 @@ class SessionsService {
       throw createError(409, 'El email ya está registrado');
     }
 
-    const hashedPassword = await createHash(password);
+    try {
+      const user = await usersRepository.createUser({
+        first_name: first_name.trim(),
+        last_name: last_name.trim(),
+        email: normalizedEmail,
+        password: await createHash(password)
+      });
 
-    return usersRepository.create({
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
-      email: normalizedEmail,
-      password: hashedPassword
-    });
+      return toUserDTO(user);
+    } catch (error) {
+      if (error.code === 11000) {
+        throw createError(409, 'El email ya está registrado');
+      }
+
+      throw error;
+    }
   }
 
-  async loginUser(data) {
-    const { email, password } = data || {};
-
-    if (
-      typeof email !== 'string' || !email.trim() ||
-      typeof password !== 'string' || !password.trim()
-    ) {
+  async authenticateUser(email, password) {
+    if (isBlank(email) || isBlank(password)) {
       throw createError(401, 'Credenciales inválidas');
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await usersRepository.findByEmail(normalizedEmail);
+    const user = await usersRepository.findByEmail(email.trim().toLowerCase());
 
     if (!user || !(await isValidPassword(password, user.password))) {
       throw createError(401, 'Credenciales inválidas');
     }
 
-    return generateToken({
-      id: user._id.toString(),
-      email: user.email,
-      role: user.role
-    });
+    return toCurrentUserDTO(user);
   }
 }
 

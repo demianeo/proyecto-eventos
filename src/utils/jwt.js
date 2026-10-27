@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import env from '../config/env.config.js';
 
-const getJwtSecret = () => {
+export const getJwtSecret = () => {
   if (!env.jwtSecret) {
     throw new Error('Falta configurar JWT_SECRET en el archivo .env');
   }

@@ -1,7 +1,7 @@
 import { verifyToken } from '../utils/jwt.js';
 
 export const authMiddleware = (request, response, next) => {
-  const token = request.cookies.currentUser;
+  const token = request.cookies?.currentUser;
 
   if (!token) {
     return response.status(401).json({
@@ -11,15 +11,14 @@ export const authMiddleware = (request, response, next) => {
   }
 
   try {
-    const payload = verifyToken(token);
+    const { id, email, role } = verifyToken(token);
 
-    request.user = {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role
-    };
+    if (!id || !email || !role) {
+      throw new Error('Token incompleto');
+    }
 
-    next();
+    request.user = { id, email, role };
+    return next();
   } catch (_error) {
     return response.status(401).json({
       status: 'error',
